@@ -100,7 +100,7 @@ if [[ -n "$GPG_PUBLIC_KEY" ]]; then
 fi
 
 flatpak build-bundle "${bundle_args[@]}" .flatpak-repo "dist/$BUNDLE_NAME" "$APP_ID" "$APP_BRANCH"
-sha256sum "dist/$BUNDLE_NAME" > "dist/$BUNDLE_NAME.sha256"
+(cd dist && sha256sum "$BUNDLE_NAME" > "$BUNDLE_NAME.sha256")
 
 rm -rf dist/pages
 pages_args=(
