@@ -38,8 +38,10 @@ modules:
   - name: logseq-db
     buildsystem: simple
     build-commands:
-      - install -d /app/logseq /app/bin /app/share/applications /app/share/metainfo /app/share/icons/hicolor/scalable/apps
+      - install -d /app/logseq/resources /app/bin /app/share/applications /app/share/metainfo /app/share/icons/hicolor/scalable/apps
       - cp -a . /app/logseq/
+      - mv /app/logseq/app.asar /app/logseq/resources/app.asar
+      - mv /app/logseq/app.asar.unpacked /app/logseq/resources/app.asar.unpacked
       - chmod 0755 /app/logseq/logseq /app/logseq/chrome-sandbox
       - install -Dm755 run.sh /app/bin/run.sh
       - install -Dm644 com.logseq.LogseqDB.desktop /app/share/applications/com.logseq.LogseqDB.desktop
