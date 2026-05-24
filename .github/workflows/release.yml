@@ -1,0 +1,183 @@
+name: Build Flatpak Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Rebuild even if this Flatpak release already exists
+        required: true
+        type: boolean
+        default: true
+      deploy_pages:
+        description: Deploy the generated Flatpak repository to GitHub Pages
+        required: true
+        type: boolean
+        default: false
+  schedule:
+    - cron: '41 */6 * * *'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: logseq-db-flatpak-release
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+      asset_name: ${{ steps.resolve.outputs.asset_name }}
+      should_build: ${{ steps.resolve.outputs.should_build }}
+      reason: ${{ steps.resolve.outputs.reason }}
+      upstream_release_name: ${{ steps.resolve.outputs.upstream_release_name }}
+
+    steps:
+      - name: Check out packaging repo
+        uses: actions/checkout@v4
+
+      - name: Resolve upstream nightly
+        id: resolve
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          FORCE_BUILD: ${{ github.event.inputs.force || 'false' }}
+        run: |
+          python3 scripts/check-upstream-release.py \
+            --packaging-repo "${{ github.repository }}" \
+            --force "$FORCE_BUILD"
+
+      - name: Write summary
+        run: |
+          {
+            echo "### Logseq DB upstream check"
+            echo ""
+            echo "- Upstream tag: \`${{ steps.resolve.outputs.tag }}\`"
+            echo "- Upstream release: \`${{ steps.resolve.outputs.upstream_release_name }}\`"
+            echo "- Version: \`${{ steps.resolve.outputs.version }}\`"
+            echo "- Asset: \`${{ steps.resolve.outputs.asset_name }}\`"
+            echo "- Packaging release: \`${{ steps.resolve.outputs.release_tag }}\`"
+            echo "- Should build: \`${{ steps.resolve.outputs.should_build }}\`"
+            echo "- Reason: ${{ steps.resolve.outputs.reason }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: resolve
+    if: needs.resolve.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out packaging repo
+        uses: actions/checkout@v4
+
+      - name: Install Flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder appstream desktop-file-utils
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08 org.electronjs.Electron2.BaseApp//25.08
+
+      - name: Configure Pages
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_pages == 'true' }}
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Prepare Flatpak signing key
+        env:
+          FLATPAK_GPG_PRIVATE_KEY: ${{ secrets.FLATPAK_GPG_PRIVATE_KEY }}
+          FLATPAK_GPG_KEY_ID_VAR: ${{ vars.FLATPAK_GPG_KEY_ID }}
+          FLATPAK_GPG_KEY_ID_SECRET: ${{ secrets.FLATPAK_GPG_KEY_ID }}
+        run: |
+          FLATPAK_GPG_KEY_ID="${FLATPAK_GPG_KEY_ID_VAR:-$FLATPAK_GPG_KEY_ID_SECRET}"
+          echo "FLATPAK_GPG_KEY_ID=$FLATPAK_GPG_KEY_ID" >> "$GITHUB_ENV"
+          echo "FLATPAK_GPG_HOMEDIR=$RUNNER_TEMP/gnupg" >> "$GITHUB_ENV"
+          if [[ -z "$FLATPAK_GPG_PRIVATE_KEY" || -z "$FLATPAK_GPG_KEY_ID" ]]; then
+            echo "Flatpak GPG signing is not configured; publishing an unsigned repository."
+            exit 0
+          fi
+          install -d -m 700 "$RUNNER_TEMP/gnupg"
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          printf '%s' "$FLATPAK_GPG_PRIVATE_KEY" | gpg --batch --import
+          gpg --batch --export "$FLATPAK_GPG_KEY_ID" > "$RUNNER_TEMP/flatpak-public.gpg"
+
+      - name: Build bundle
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          FLATPAK_GPG_PUBLIC_KEY: ${{ runner.temp }}/flatpak-public.gpg
+          DEPLOY_PAGES: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_pages == 'true' }}
+          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+        run: |
+          if [[ ! -s "$FLATPAK_GPG_PUBLIC_KEY" ]]; then
+            unset FLATPAK_GPG_KEY_ID FLATPAK_GPG_PUBLIC_KEY
+          fi
+          if [[ "$DEPLOY_PAGES" == "true" && -n "$PAGES_BASE_URL" ]]; then
+            export FLATPAK_BASE_URL="$PAGES_BASE_URL"
+            export FLATPAK_REPO_URL="${PAGES_BASE_URL%/}/repo"
+          fi
+          ./scripts/build-flatpak.sh
+
+      - name: Read release metadata
+        id: meta
+        run: |
+          . build/generated/release.env
+          echo "bundle=$BUNDLE_NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$LOGSEQ_DB_VERSION" >> "$GITHUB_OUTPUT"
+          echo "asset=$LOGSEQ_DB_ASSET_NAME" >> "$GITHUB_OUTPUT"
+          echo "sha256=$LOGSEQ_DB_ASSET_SHA256" >> "$GITHUB_OUTPUT"
+          echo "upstream_release_name=$LOGSEQ_DB_UPSTREAM_RELEASE_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Write release body
+        env:
+          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+        run: |
+          {
+            echo "Flatpak bundle built from upstream Logseq DB nightly release \`${{ steps.meta.outputs.upstream_release_name }}\`."
+            echo ""
+            if [[ -n "$PAGES_BASE_URL" ]]; then
+              echo "Flatpak repository: ${PAGES_BASE_URL%/}/logseq-db.flatpakrepo"
+              echo "Direct install ref: ${PAGES_BASE_URL%/}/com.logseq.LogseqDB.flatpakref"
+              echo ""
+            else
+              echo "GitHub Pages deployment was disabled for this run; install the attached bundle directly."
+              echo ""
+            fi
+            echo "Upstream release: https://github.com/logseq/logseq/releases/tag/nightly"
+            echo "Upstream Linux asset: \`${{ steps.meta.outputs.asset }}\`"
+            echo "Upstream asset SHA256: \`${{ steps.meta.outputs.sha256 }}\`"
+            echo ""
+            echo "This follows Logseq's DB version nightly builds. Use a test graph or backups before relying on it for important data."
+          } > build/generated/release-body.md
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.bundle }}
+          path: |
+            dist/${{ steps.meta.outputs.bundle }}
+            dist/${{ steps.meta.outputs.bundle }}.sha256
+
+      - name: Upload Pages artifact
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_pages == 'true' }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/pages
+
+      - name: Deploy Flatpak repository to Pages
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_pages == 'true' }}
+        uses: actions/deploy-pages@v4
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve.outputs.release_tag }}
+          name: Logseq DB ${{ steps.meta.outputs.version }} Flatpak
+          target_commitish: ${{ github.sha }}
+          overwrite_files: true
+          files: |
+            dist/${{ steps.meta.outputs.bundle }}
+            dist/${{ steps.meta.outputs.bundle }}.sha256
+          body_path: build/generated/release-body.md

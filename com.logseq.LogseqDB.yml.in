@@ -1,0 +1,60 @@
+app-id: com.logseq.LogseqDB
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '25.08'
+command: run.sh
+separate-locales: false
+
+finish-args:
+  - --device=dri
+  - --share=ipc
+  - --share=network
+  - --socket=x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --socket=ssh-auth
+  - --filesystem=home
+  - --persist=~/.ssh
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.freedesktop.portal.Desktop
+  - --env=SSH_ASKPASS=/app/libexec/openssh/ssh-askpass
+  - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons
+
+cleanup:
+  - /include
+  - /lib/debug
+  - /lib/pkgconfig
+  - /share/doc
+  - /share/gtk-doc
+  - /share/man
+  - '*.a'
+  - '*.la'
+  - '*.js.map'
+
+modules:
+  - name: logseq-db
+    buildsystem: simple
+    build-commands:
+      - install -d /app/logseq /app/bin /app/share/applications /app/share/metainfo /app/share/icons/hicolor/scalable/apps
+      - cp -a . /app/logseq/
+      - chmod 0755 /app/logseq/logseq /app/logseq/chrome-sandbox
+      - install -Dm755 run.sh /app/bin/run.sh
+      - install -Dm644 com.logseq.LogseqDB.desktop /app/share/applications/com.logseq.LogseqDB.desktop
+      - install -Dm644 com.logseq.LogseqDB.metainfo.xml /app/share/metainfo/com.logseq.LogseqDB.metainfo.xml
+      - install -Dm644 com.logseq.LogseqDB.svg /app/share/icons/hicolor/scalable/apps/com.logseq.LogseqDB.svg
+    sources:
+      - type: archive
+        url: @LOGSEQ_DB_ZIP_URL@
+        sha256: @LOGSEQ_DB_ZIP_SHA256@
+      - type: script
+        dest-filename: run.sh
+        commands:
+          - zypak-wrapper.sh /app/logseq/logseq "$@"
+      - type: file
+        path: flatpak/com.logseq.LogseqDB.desktop
+      - type: file
+        path: build/generated/com.logseq.LogseqDB.metainfo.xml
+      - type: file
+        path: flatpak/com.logseq.LogseqDB.svg

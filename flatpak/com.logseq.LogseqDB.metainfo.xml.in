@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.logseq.LogseqDB</id>
+  <metadata_license>FSFAP</metadata_license>
+  <project_license>AGPL-3.0-or-later</project_license>
+  <name>Logseq DB</name>
+  <summary>Logseq database version nightly build</summary>
+  <developer_name>Logseq, Inc.</developer_name>
+  <content_rating type="oars-1.0"/>
+
+  <description>
+    <p>Logseq is a local-first, non-linear outliner notebook for organizing a personal knowledge base.</p>
+    <p>This package follows the upstream DB version nightly desktop build. Nightly builds are intended for testing and may contain breaking changes.</p>
+  </description>
+
+  <categories>
+    <category>Office</category>
+  </categories>
+  <launchable type="desktop-id">com.logseq.LogseqDB.desktop</launchable>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#195d6c</color>
+    <color type="primary" scheme_preference="dark">#014456</color>
+  </branding>
+
+  <url type="homepage">https://logseq.com</url>
+  <url type="bugtracker">https://github.com/logseq/logseq/issues</url>
+  <url type="help">https://docs.logseq.com/</url>
+  <url type="contact">https://discuss.logseq.com/</url>
+
+  <releases>
+    <release version="@VERSION@" date="@RELEASE_DATE@">
+      <description>
+        <p>Packaged from upstream Logseq DB nightly release @UPSTREAM_RELEASE_NAME@.</p>
+      </description>
+      <url>https://github.com/logseq/logseq/releases/tag/nightly</url>
+    </release>
+  </releases>
+</component>

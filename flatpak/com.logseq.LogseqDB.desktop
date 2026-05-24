@@ -1,0 +1,16 @@
+[Desktop Entry]
+Name=Logseq DB
+Exec=run.sh %U
+Terminal=false
+Type=Application
+Icon=com.logseq.LogseqDB
+StartupWMClass=Logseq
+Comment=A local-first outliner notebook for knowledge management.
+MimeType=x-scheme-handler/logseq;
+Categories=Office;
+NoDisplay=false
+Actions=Wayland;
+
+[Desktop Action Wayland]
+Name=Wayland Backend
+Exec=run.sh %U --enable-features=UseOzonePlatform --ozone-platform=wayland --enable-features=WaylandWindowDecorations
