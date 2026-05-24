@@ -44,6 +44,7 @@ modules:
       - mv /app/logseq/app.asar.unpacked /app/logseq/resources/app.asar.unpacked
       - chmod 0755 /app/logseq/logseq /app/logseq/chrome-sandbox
       - install -Dm755 run.sh /app/bin/run.sh
+      - install -Dm755 xdg-settings /app/bin/xdg-settings
       - install -Dm644 com.logseq.LogseqDB.desktop /app/share/applications/com.logseq.LogseqDB.desktop
       - install -Dm644 com.logseq.LogseqDB.metainfo.xml /app/share/metainfo/com.logseq.LogseqDB.metainfo.xml
       - install -Dm644 com.logseq.LogseqDB.svg /app/share/icons/hicolor/scalable/apps/com.logseq.LogseqDB.svg
@@ -55,6 +56,28 @@ modules:
         dest-filename: run.sh
         commands:
           - zypak-wrapper.sh /app/logseq/logseq "$@"
+      - type: script
+        dest-filename: xdg-settings
+        commands:
+          - |
+            case "${1:-}" in
+              check)
+                exit 1
+                ;;
+              get)
+                if [ "${2:-}" = "default-url-scheme-handler" ] && [ -n "${3:-}" ]; then
+                  gdbus call --session \
+                    --dest org.freedesktop.portal.Desktop \
+                    --object-path /org/freedesktop/portal/desktop \
+                    --method org.freedesktop.portal.Settings.Read \
+                    org.freedesktop.impl.portal.DefaultApp "default-url-scheme-handler:${3}" \
+                    2>/dev/null | sed -n "s/.*<'\\([^']*\\)'>.*/\\1/p"
+                fi
+                ;;
+              set)
+                exit 1
+                ;;
+            esac
       - type: file
         path: flatpak/com.logseq.LogseqDB.desktop
       - type: file

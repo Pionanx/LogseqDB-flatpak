@@ -108,10 +108,10 @@ def main() -> None:
 
     warning = ""
     install_command = (
-        f"flatpak remote-add --user --if-not-exists {args.repo_name} "
+        f"flatpak remote-add --user --if-not-exists --from {args.repo_name} "
         f"{base_url}/{args.repo_name}.flatpakrepo"
         if base_url
-        else f"flatpak remote-add --user --if-not-exists {args.repo_name} {output_dir / (args.repo_name + '.flatpakrepo')}"
+        else f"flatpak remote-add --user --if-not-exists --from {args.repo_name} {output_dir / (args.repo_name + '.flatpakrepo')}"
     )
     if not gpg_key:
         warning = (
