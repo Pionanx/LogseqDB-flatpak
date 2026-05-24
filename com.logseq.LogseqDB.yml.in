@@ -19,6 +19,7 @@ finish-args:
   - --persist=~/.ssh
   - --talk-name=org.freedesktop.Notifications
   - --talk-name=org.freedesktop.portal.Desktop
+  - --system-talk-name=org.freedesktop.UPower
   - --env=SSH_ASKPASS=/app/libexec/openssh/ssh-askpass
   - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons
 
