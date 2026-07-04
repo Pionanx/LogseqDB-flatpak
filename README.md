@@ -65,9 +65,9 @@ Flatpak release. Scheduled runs never force rebuilds.
 
 Every build also publishes:
 
-- `https://<owner>.github.io/<repo>/logseq-db.flatpakrepo`
-- `https://<owner>.github.io/<repo>/com.logseq.LogseqDB.flatpakref`
-- `https://<owner>.github.io/<repo>/repo/`
+- `https://pionanx.github.io/LogseqDB-flatpak/logseq-db.flatpakrepo`
+- `https://pionanx.github.io/LogseqDB-flatpak/com.logseq.LogseqDB.flatpakref`
+- `https://pionanx.github.io/LogseqDB-flatpak/repo/`
 
 Enable GitHub Pages for this repository with source set to **GitHub Actions** if
 you want the updateable repository. Unsigned repositories require
