@@ -3,7 +3,7 @@ name: Build Flatpak Release
 on:
   push:
     branches:
-      - master
+      - main
   workflow_dispatch:
     inputs:
       force:
