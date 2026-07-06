@@ -14,6 +14,53 @@ GPG_KEY_ID="${FLATPAK_GPG_KEY_ID:-}"
 GPG_HOMEDIR="${FLATPAK_GPG_HOMEDIR:-${GNUPGHOME:-}}"
 GPG_PUBLIC_KEY="${FLATPAK_GPG_PUBLIC_KEY:-}"
 
+find_default_gpg_public_key() {
+  local candidate
+  for candidate in \
+    "$ROOT/flatpak-repo.gpg" \
+    "$ROOT/flatpak-repo.asc" \
+    "$ROOT/flatpak-repo-public.gpg" \
+    "$ROOT/flatpak-repo-public.asc" \
+    "$ROOT/public.gpg" \
+    "$ROOT/public.asc" \
+    "$ROOT/gpg.key" \
+    "$ROOT/gpg.asc" \
+    "$ROOT/../flatpak-repo.gpg" \
+    "$ROOT/../flatpak-repo.asc" \
+    "$ROOT/../flatpak-repo-public.gpg" \
+    "$ROOT/../flatpak-repo-public.asc" \
+    "$ROOT/../public.gpg" \
+    "$ROOT/../public.asc" \
+    "$ROOT/../gpg.key" \
+    "$ROOT/../gpg.asc"; do
+    if [[ -f "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+}
+
+gpg_homedir_args=()
+if [[ -n "$GPG_HOMEDIR" ]]; then
+  gpg_homedir_args=(--homedir "$GPG_HOMEDIR")
+fi
+
+if [[ -z "$GPG_PUBLIC_KEY" ]]; then
+  GPG_PUBLIC_KEY="$(find_default_gpg_public_key || true)"
+fi
+if [[ -z "$GPG_KEY_ID" && -n "$GPG_PUBLIC_KEY" ]] && command -v gpg >/dev/null 2>&1; then
+  GPG_KEY_ID="$(gpg --show-keys --with-colons "$GPG_PUBLIC_KEY" 2>/dev/null | awk -F: '$1 == "fpr" { print $10; exit }')"
+  if [[ -n "$GPG_KEY_ID" ]] && ! gpg "${gpg_homedir_args[@]}" --batch --list-secret-keys "$GPG_KEY_ID" >/dev/null 2>&1; then
+    GPG_KEY_ID=""
+    GPG_PUBLIC_KEY=""
+  fi
+fi
+if [[ -n "$GPG_KEY_ID" && -z "$GPG_PUBLIC_KEY" ]] && command -v gpg >/dev/null 2>&1; then
+  GPG_PUBLIC_KEY="$ROOT/build/generated/flatpak-public.gpg"
+  mkdir -p "$(dirname "$GPG_PUBLIC_KEY")"
+  gpg "${gpg_homedir_args[@]}" --batch --export "$GPG_KEY_ID" > "$GPG_PUBLIC_KEY"
+fi
+
 cd "$ROOT"
 
 python3 scripts/prepare-release.py
